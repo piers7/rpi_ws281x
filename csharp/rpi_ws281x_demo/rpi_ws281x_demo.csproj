@@ -52,4 +52,7 @@
   <Target Name="AfterBuild">
   </Target>
   -->
+ <Target Name="BeforeBuild" Condition=" '$(OS)' == 'Unix' ">
+	<Copy SourceFiles="..\lib\libws2811.so" DestinationFolder="$(OutDir)" />
+ </Target>
 </Project>
