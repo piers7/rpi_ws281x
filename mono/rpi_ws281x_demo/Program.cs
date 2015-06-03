@@ -20,24 +20,40 @@ namespace rpi_ws281x
         static int Main(string[] args)
         {
             Console.TreatControlCAsInput = true;
-            Console.CancelKeyPress += (o, e) => _cancelRequested = 1;
-
             using (var client = Ws281xClient.Create(LED_COUNT, GPIO_PIN))
             {
+                Console.WriteLine("Running demo on pin {0}, {1} leds", client.GpioPin, client.PixelCount);
                 for (int i = 0; i < LED_COUNT; i++)
                 {
-                    if (_cancelRequested > 0)
+                    if (IsCancelRequested())
                         return 0;
 
-                    Console.WriteLine("Set LED {0}", i);
-                    client.SetPixelColor(i, 0x00FF0000);
+                    var color = Ws281xClient.Wheel((byte)i);
+                    Console.WriteLine("Set LED {0} to 0x{1:x}", i, color);
+                    client.SetPixelColor(i, color);
                     client.Show();
 
-                    if (_cancelRequested == 0)
+                    if (!IsCancelRequested())
                         Thread.Sleep(100);
                 }
             }
             return 0;
+        }
+
+        private static bool IsCancelRequested()
+        {
+            if (Console.KeyAvailable)
+            {
+                var key = Console.ReadKey();
+                switch (key.Key)
+                {
+                    case ConsoleKey.Escape:
+                        return true;
+                    case ConsoleKey.C:
+                        return key.Modifiers == ConsoleModifiers.Control;
+                }
+            }
+            return false;
         }
     }
 }
