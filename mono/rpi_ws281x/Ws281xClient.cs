@@ -50,15 +50,24 @@ namespace rpi_ws281x
         }
 
         /// <summary>
+        /// Clears all pixels to black
+        /// </summary>
+        public void Clear()
+        {
+            var blank = new byte[PixelCount];
+            SetPixels(blank);
+        }
+
+        /// <summary>
         /// Sets pixel <param name="n"/> from a 32 bit RGB color (0x00RRGGBB)
         /// </summary>
         public void SetPixelColor(int n, uint color)
         {
             var offset = n * 4;
             var a = (byte)(color >> 24);
-            var r = (byte)(color >> 16);
-            var g = (byte)(color >> 8);
-            var b = (byte)(color);
+            var r = (byte)(color >> 16);    // r
+            var g = (byte)(color >> 8);     // g
+            var b = (byte)(color);          // b
             SetPixelColor(n, r, g, b);
         }
 
@@ -69,13 +78,25 @@ namespace rpi_ws281x
         {
             BoundsCheck(n, 0, PixelCount - 1, "n");
 
-            var offset = n * 4;
             var ptr = _data.channel[_defaultChannel].leds;
-            // Might be nicer to somehow write all 4 bytes at once?
-            Marshal.WriteByte(ptr, offset + 0, 00);
-            Marshal.WriteByte(ptr, offset + 1, r);
-            Marshal.WriteByte(ptr, offset + 2, g);
-            Marshal.WriteByte(ptr, offset + 3, b);
+
+            var a = (byte)0;
+            var bytes = new byte[] { b, g, r, a }; // little endian layout
+            if (!BitConverter.IsLittleEndian)
+                bytes = Reverse(bytes);
+
+            // Would be nice to map all 4 bytes in one go
+            // Marshal.Copy(bytes, 0, ptr, bytes.Length);
+            // but the above only hits the first pixel,
+            // unless we do some pointer math
+            // or pad out the 'bytes' array appropriately
+
+            // Instead, use the hammer and just marshal each byte seperately
+            // As a result, Endianness is VERY important
+            var offset = n * 4;
+            for (int i = 0; i < bytes.Length; i++)
+                Marshal.WriteByte(ptr, offset + i, bytes[i]);
+            // Of course, if Marshal.WriteUInt32() existed, this wouldn't be a problem
         }
 
         /// <summary>
@@ -93,8 +114,8 @@ namespace rpi_ws281x
             var g = Marshal.ReadByte(ptr, offset + 2);
             var b = Marshal.ReadByte(ptr, offset + 3);
 
-            var bytes = new[] { a, r, g, b };
-            if (BitConverter.IsLittleEndian)
+            var bytes = new byte[] { b, g, r, a }; // little endian layout
+            if (!BitConverter.IsLittleEndian)
                 bytes = Reverse(bytes);
 
             return BitConverter.ToUInt32(bytes, 0);
@@ -105,9 +126,11 @@ namespace rpi_ws281x
         /// </summary>
         public uint[] GetPixels()
         {
-            var output = new uint[PixelCount];
-            Marshal.PtrToStructure(_data.channel[_defaultChannel].leds, output);
-            return output;
+            var channel = _data.channel[_defaultChannel];
+            var buffer = new byte[channel.count * 4];
+            Marshal.Copy(_data.channel[_defaultChannel].leds, buffer, 0, buffer.Length);
+
+            return FromBytes(buffer);
         }
 
         /// <summary>
@@ -115,11 +138,24 @@ namespace rpi_ws281x
         /// </summary>
         public void SetPixels(uint[] pixels)
         {
-            // Avoid buffer overflows
-            if (pixels.Length > PixelCount)
-                throw new ArgumentOutOfRangeException("pixels", "too many items in the array");
+            var channel = _data.channel[_defaultChannel];
+            var maxLength = channel.count;
+            BoundsCheck(pixels.Length, 0, maxLength, "pixels.Length");
 
-            Marshal.StructureToPtr(pixels, _data.channel[_defaultChannel].leds, false);
+            var buffer = ToBytes(pixels);
+            SetPixels(buffer);
+        }
+
+        /// <summary>
+        /// Sets the entire pixel buffer as-is from the buffer provided
+        /// </summary>
+        public void SetPixels(byte[] pixels)
+        {
+            var channel = _data.channel[_defaultChannel];
+            var maxLength = channel.count * 4;
+            BoundsCheck(pixels.Length, 0, maxLength, "pixels.Length (bytes)");
+
+            Marshal.Copy(pixels, 0, channel.leds, pixels.Length);
         }
 
         /// <summary>
@@ -197,9 +233,67 @@ namespace rpi_ws281x
             return Wheel((byte)scaledValue);
         }
 
+        /// <summary>
+        /// Packs r,g,b bytes into a packed (big endian) uint32 representation
+        /// </summary>
         public static uint Color(byte r, byte g, byte b)
         {
             return (uint)(r << 16) | (uint)(g << 8) | b;
+        }
+
+        private static uint Color(byte[] rgb)
+        {
+            if(BitConverter.IsLittleEndian)
+                return Color(rgb[2], rgb[1], rgb[0]);
+            else
+                return Color(rgb[1], rgb[2], rgb[3]);
+        }
+
+        /// <summary>
+        /// Unpacks a uint32 into it's a,r,g,b components
+        /// </summary>
+        /// <remarks>This essentially gives a big-endian representation of the
+        /// actual bits in <param name="color"/></remarks>
+        public static byte[] Color(uint color)
+        {
+            return new byte[]{
+                (byte)(color >> 24),
+                (byte)(color >> 16), // r
+                (byte)(color >> 8),  // g
+                (byte)(color)        // b
+            };
+        }
+
+        private static byte[] ToBytes(uint[] pixels)
+        {
+            var buffer = new byte[pixels.Length * 4];
+            for (int i = 0; i < pixels.Length; i++)
+            {
+                var packedColor = pixels[i];
+                var colorBytes = Color(packedColor);
+
+                if (BitConverter.IsLittleEndian)
+                    colorBytes = Reverse(colorBytes);
+
+                colorBytes.CopyTo(buffer, i * 4);
+            }
+            return buffer;
+        }
+
+        private static uint[] FromBytes(byte[] buffer)
+        {
+            if (buffer.Length % 4 != 0)
+                throw new ArgumentException("Can only deal with multiples of 4 bytes");
+
+            var pixels = new uint[buffer.Length / 4];
+            for (int i = 0; i < pixels.Length; i++)
+            {
+                var colorBytes = new byte[4];
+                buffer.CopyTo(colorBytes, i * 4);
+                var pixel = Color(colorBytes);
+                pixels[i] = pixel;
+            }
+            return pixels;
         }
 
         private static T[] Reverse<T>(T[] input)
@@ -209,5 +303,11 @@ namespace rpi_ws281x
                 output[i] = input[input.Length - 1 - i];
             return output;
         }
+
+
+        // Marshal.StructureToPtr
+        // See http://blogs.msdn.com/b/dsvc/archive/2009/11/02/p-invoke-marshal-structuretoptr.aspx
+        // for better description of 3rd parameter 'fDeleteOld'
+        // However, turns out we don't need that anyway - Marshal.Copy is what I should have been using
     }
 }

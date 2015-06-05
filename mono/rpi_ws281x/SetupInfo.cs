@@ -6,7 +6,7 @@ namespace rpi_ws281x
 {
     public class SetupInfo
     {
-        int _ledCount;
+        readonly int _ledCount;
 
         public SetupInfo(int ledCount)
         {
