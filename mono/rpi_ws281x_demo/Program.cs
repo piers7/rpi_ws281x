@@ -36,64 +36,79 @@ Memory layout: {1}",
                 Environment.OSVersion,
                 BitConverter.IsLittleEndian ? "LittleEndian" : "BigEndian"
             );
-            using (var client = Ws281xClient.Create(ledCount, GPIO_PIN))
-            {
-                Console.WriteLine("Running demo on pin {0}, {1} leds", client.GpioPin, client.PixelCount);
 
-                while (RunTestPatterns(client))
-                {
-                    // keeps going until cancelled
-                }
+            return Run(ledCount, GPIO_PIN);
+        }
+
+        private static int Run(int ledCount, int gpioPin)
+        {
+            Console.WriteLine("Running demo on pin {0}, {1} leds", gpioPin, ledCount);
+            using (var client = Ws281xClient.Create(ledCount, gpioPin))
+            {
+                RunTestPatterns(client);
             }
             return 0;
         }
 
-        public static bool RunTestPatterns(Ws281xClient client)
+        public static void RunTestPatterns(Ws281xClient client)
         {
-            // Test pattern using SetPixelColor(n,r,g,b)
-            bool completedOk;
-            completedOk = Grow(client, "SetPixelColor(n,r,g,b)", i =>
+            while (true)
             {
-                switch (i % 3)
+                // Test pattern using SetPixelColor(n,r,g,b)
+                bool completedOk;
+                completedOk = CancelAwareLoop(client, "SetPixelColor(n,r,g,b)", i =>
                 {
-                    case 0:
-                        client.SetPixelColor(i, 255, 0, 0);
-                        break;
-                    case 1:
-                        client.SetPixelColor(i, 0, 255, 0);
-                        break;
-                    case 2:
-                        client.SetPixelColor(i, 0, 0, 255);
-                        break;
-                }
-            });
-            if (!completedOk) return completedOk;
+                    switch (i % 3)
+                    {
+                        case 0:
+                            client.SetPixelColor(i, 255, 0, 0);
+                            break;
+                        case 1:
+                            client.SetPixelColor(i, 0, 255, 0);
+                            break;
+                        case 2:
+                            client.SetPixelColor(i, 0, 0, 255);
+                            break;
+                    }
+                });
+                if (!completedOk) return;
 
-            // Test pattern using SetPixelColor(n, color)
-            completedOk = Grow(client, "SetPixelColor(n,color)", i =>
-            {
-                uint color = colors[i % colors.Length];
-                client.SetPixelColor(i, color);
-            });
-            if (!completedOk) return completedOk;
 
-            // Test pattern using SetPixels(buffer)
-            var pixels = new uint[client.PixelCount];
-            completedOk = Grow(client, "SetPixels(buffer)", i =>
-            {
-                uint color = colors[i % colors.Length];
-                pixels[i] = color;
-                client.SetPixels(pixels);
-            });
-            if (!completedOk) return completedOk;
 
-            return true;
+                // Test pattern using SetPixelColor(n, color)
+                completedOk = CancelAwareLoop(client, "SetPixelColor(n,color)", i =>
+                {
+                    uint color = colors[i % colors.Length];
+                    client.SetPixelColor(i, color);
+                });
+                if (!completedOk) return;
+
+
+
+                // Test pattern using SetPixels(buffer)
+                var pixels = new uint[client.PixelCount];
+                completedOk = CancelAwareLoop(client, "SetPixels(buffer)", i =>
+                {
+                    uint color = colors[i % colors.Length];
+                    pixels[i] = color;
+                    client.SetPixels(pixels);
+                });
+                if (!completedOk) return;
+
+
+                // Test pattern using SetPixels(func)
+                completedOk = CancelAwareLoop(client, "SetPixels(func)", i =>
+                {
+                    client.SetPixels(n => Ws281xClient.Wheel(n+i,0,client.PixelCount));
+                });
+                if (!completedOk) return;
+            }
         }
 
         /// <summary>
-        /// Test pattern using SetPixelColor(i, r, g, b)
+        /// Runs the test patterns in a loop which can be aborted, without having to duplicate all the handling
         /// </summary>
-        private static bool Grow(Ws281xClient client, string name, Action<int> setPixel)
+        private static bool CancelAwareLoop(Ws281xClient client, string name, Action<int> setPixel)
         {
             Console.WriteLine(name);
             client.Clear();

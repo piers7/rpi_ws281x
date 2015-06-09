@@ -130,9 +130,7 @@ namespace rpi_ws281x
         public uint[] GetPixels()
         {
             var channel = _data.channel[_defaultChannel];
-            var buffer = new byte[channel.count * 4];
-            Marshal.Copy(_data.channel[_defaultChannel].leds, buffer, 0, buffer.Length);
-
+            var buffer = GetPixelsInternal(channel);
             return FromBytes(buffer);
         }
 
@@ -146,7 +144,7 @@ namespace rpi_ws281x
             BoundsCheck(pixels.Length, 0, maxLength, "pixels.Length");
 
             var buffer = ToBytes(pixels);
-            SetPixels(buffer);
+            SetPixelsInternal(channel, buffer);
         }
 
         /// <summary>
@@ -158,7 +156,40 @@ namespace rpi_ws281x
             var maxLength = channel.count * 4;
             BoundsCheck(pixels.Length, 0, maxLength, "pixels.Length (bytes)");
 
-            Marshal.Copy(pixels, 0, channel.leds, pixels.Length);
+            SetPixelsInternal(channel, pixels);
+        }
+
+        /// <summary>
+        /// Sets the entire pixel buffer using a mapping function.
+        /// </summary>
+        /// <remarks>This approach is for convenience really.
+        /// I *could* make it interop the bytes-as-we-go, and avoid
+        /// the overhead of doubling up the entire buffer,
+        /// but the memory gains would be insignificant</remarks>
+        public void SetPixels(Func<int, uint> map)
+        {
+            var channel = _data.channel[_defaultChannel];
+            var buffer = new byte[channel.count * 4];
+            for (var i = 0; i < channel.count; i++)
+            {
+                var pixel = map(i);
+                var bytes = Color(pixel);
+                bytes.CopyTo(buffer, i*4);
+            }
+            SetPixelsInternal(channel, buffer);
+        }
+
+        /// <summary>
+        /// Sets the entire pixel buffer using a mapping function
+        /// </summary>
+        public void SetPixels(Func<int, uint, uint> map)
+        {
+            var existing = GetPixels();
+            SetPixels(i =>
+            {
+                var oldValue = existing[i];
+                return map(i, oldValue);
+            });
         }
 
         /// <summary>
@@ -307,7 +338,19 @@ namespace rpi_ws281x
             return output;
         }
 
+        #region Private marshalling methods
+        private void SetPixelsInternal(ws2811_channel_t channel, byte[] pixels)
+        {
+            Marshal.Copy(pixels, 0, channel.leds, pixels.Length);
+        }
 
+        private byte[] GetPixelsInternal(ws2811_channel_t channel)
+        {
+            var buffer = new byte[channel.count * 4];
+            Marshal.Copy(channel.leds, buffer, 0, buffer.Length);
+            return buffer;
+        }
+        #endregion
         // Marshal.StructureToPtr
         // See http://blogs.msdn.com/b/dsvc/archive/2009/11/02/p-invoke-marshal-structuretoptr.aspx
         // for better description of 3rd parameter 'fDeleteOld'

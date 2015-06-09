@@ -9,8 +9,9 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>rpi_ws281x</RootNamespace>
     <AssemblyName>rpi_ws281x_demo</AssemblyName>
-    <TargetFrameworkVersion>v2.0</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
+    <TargetFrameworkProfile />
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <PlatformTarget>AnyCPU</PlatformTarget>
@@ -44,6 +45,9 @@
       <Name>rpi_ws281x</Name>
     </ProjectReference>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="app.config" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
@@ -52,7 +56,7 @@
   <Target Name="AfterBuild">
   </Target>
   -->
- <Target Name="BeforeBuild" Condition=" '$(OS)' == 'Unix' ">
-	<Copy SourceFiles="..\lib\libws2811.so" DestinationFolder="$(OutDir)" />
- </Target>
+  <Target Name="BeforeBuild" Condition=" '$(OS)' == 'Unix' ">
+    <Copy SourceFiles="..\lib\libws2811.so" DestinationFolder="$(OutDir)" />
+  </Target>
 </Project>
