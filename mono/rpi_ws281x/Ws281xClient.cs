@@ -36,7 +36,10 @@ namespace rpi_ws281x
                 throw new Exception(string.Format("ws2811_init failed - returned {0}", ret));
         }
 
-        public int GpioPin { get { return _data.channel[_defaultChannel].gpionum; } }
+        public int GpioPin
+        {
+            get { return _data.channel[_defaultChannel].gpionum; }
+        }
 
         public int Brightness 
         {
