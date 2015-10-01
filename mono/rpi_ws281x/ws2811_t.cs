@@ -22,7 +22,7 @@ namespace rpi_ws281x
         /// <remarks>int</remarks>
         public int dmanum;
 
-        /// <summary></summary>
+        /// <summary>Array of configuration data for the PWM channels in use</summary>
         /// <remarks>ws2811_channel_t[RPI_PWM_CHANNELS]</remarks>
         [MarshalAsAttribute(UnmanagedType.ByValArray,
             SizeConst = RPI_PWM_CHANNELS,
