@@ -58,6 +58,4 @@ for src in srcs:
 
 test = tools_env.Program('test', objs + tools_env['LIBS'])
 
-# The dependent bits aren't actually required here
-# Default([test, ws2811_lib, ws2811_slib])
-Default([test])
+Default([test, ws2811_lib])
