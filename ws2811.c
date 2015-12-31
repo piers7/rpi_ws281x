@@ -46,6 +46,8 @@
 #include "dma.h"
 #include "pwm.h"
 
+#include "gamma.h"
+
 #include "ws2811.h"
 
 #define BUS_TO_PHYS(x) ((x)&~0xC0000000)
@@ -609,9 +611,9 @@ int ws2811_render(ws2811_t *ws2811)
         {
             uint8_t color[] =
             {
-                (((channel->leds[i] >> 8)  & 0xff) * scale) >> 8, // green
-                (((channel->leds[i] >> 16) & 0xff) * scale) >> 8, // red
-                (((channel->leds[i] >> 0)  & 0xff) * scale) >> 8, // blue
+                (ws281x_gamma[((channel->leds[i] >> 8)  & 0xff)] * scale) >> 8, // green
+                (ws281x_gamma[((channel->leds[i] >> 16) & 0xff)] * scale) >> 8, // red
+                (ws281x_gamma[((channel->leds[i] >> 0)  & 0xff)] * scale) >> 8, // blue
             };
 
             for (j = 0; j < ARRAY_SIZE(color); j++)        // Color
