@@ -15,7 +15,7 @@
 #         provided with the distribution.
 #     3.  Neither the name of the owner nor the names of its contributors may be used to endorse
 #         or promote products derived from this software without specific prior written permission.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR
 # IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
 # FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE
@@ -34,13 +34,14 @@ tools_env = clean_envs['userspace'].Clone()
 
 # Build Library
 lib_srcs = Split('''
+    mailbox.c
     ws2811.c
     pwm.c
     dma.c
-    board_info.c
-    mailbox.c
+    rpihw.c
 ''')
 
+version_hdr = tools_env.Version('version')
 ws2811_lib = tools_env.Library('libws2811', lib_srcs)
 tools_env['LIBS'].append(ws2811_lib)
 
